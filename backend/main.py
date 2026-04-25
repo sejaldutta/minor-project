@@ -29,16 +29,16 @@ def home():
 @app.post("/predict")
 def predict(data: dict):
     try:
-        # Expected input from frontend
-        temp = data["temperature"]
-        phi = data["volume_fraction"]
-        rho1 = data["density_np1"]
-        rho2 = data["density_np2"]
-        rho_bf = data["density_bf"]
-        volume = data["volume"]
-
-        # Convert to model input format
-        features = np.array([[temp, phi, rho1, rho2, rho_bf, volume]])
+        # ✅ Cast everything to float to ensure the model doesn't get strings
+        # Use .get() to avoid KeyErrors if a value is missing
+        features = np.array([[
+            float(data.get("temperature", 0)),
+            float(data.get("volume_fraction", 0)),
+            float(data.get("density_np1", 0)),
+            float(data.get("density_np2", 0)),
+            float(data.get("density_bf", 0)),
+            float(data.get("volume", 0))
+        ]])
 
         prediction = model.predict(features)
 
@@ -47,5 +47,6 @@ def predict(data: dict):
             "status": "success"
         }
 
-    except Exception as e:
-        return {"error": str(e)}
+   except Exception as e:
+        print(f"Backend Error: {e}") # This shows up in Render Logs
+        return {"error": str(e), "status": "failed"}
