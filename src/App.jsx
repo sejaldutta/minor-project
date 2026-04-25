@@ -166,7 +166,11 @@ function ControlSlider({ label, icon, defaultValue, min, max, step, unit }) {
     <div>
       <label className="text-xs">{icon} {label}</label>
       <div className="flex gap-2">
-        <input type="range" className="flex-1"/>
+        <input type="range" className="flex-1" min={min}
+          max={max}
+          step={step}
+          defaultValue={defaultValue}
+          onChange={(e) => setVal(parseFloat(e.target.value))} />
         <span>{val} {unit}</span>
       </div>
     </div>
