@@ -43,9 +43,11 @@ export default function NanofluidDashboard() {
       if (res.ok) {
         setResult(data.prediction);
       }      else {
-  // 💡 This will tell you exactly what FastAPI didn't like
-  alert("Error from Backend: " + JSON.stringify(data.detail || data.error));
-}
+//   // 💡 This will tell you exactly what FastAPI didn't like
+//   alert("Error from Backend: " + JSON.stringify(data.detail || data.error));
+// }
+        alert("Target URL: " + `${API_BASE_URL}/predict`);
+      }
     } catch (error) {
       console.error("Network/API Error:", error);
     } finally {
