@@ -23,30 +23,63 @@ export default function NanofluidDashboard() {
   const [result, setResult] = useState(null);
 
   // ✅ API CALL FUNCTION
+  // const handleCalculate = async () => {
+  //   try {
+  //     const res = await fetch("http://localhost:10000/predict", {
+  //       method: "POST",
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //       },
+  //       body: JSON.stringify({
+  //         temperature: 40,
+  //         volume_fraction: 1.0,
+  //         density_np1: 3970,
+  //         density_np2: 5810,
+  //         density_bf: 997,
+  //         volume: 1.0,
+  //       }),
+  //     });
+
+  //     const data = await res.json();
+  //     setResult(data.prediction);
+
+  //   } catch (error) {
+  //     console.error("API Error:", error);
+  //   }
+  // };
   const handleCalculate = async () => {
-    try {
-      const res = await fetch("http://localhost:10000/predict", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          temperature: 40,
-          volume_fraction: 1.0,
-          density_np1: 3970,
-          density_np2: 5810,
-          density_bf: 997,
-          volume: 1.0,
-        }),
-      });
+  try {
+    // 1. Get the URL from the Environment Variable you set in Vercel
+    // If it's not found, it defaults to localhost for your local testing
+    const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:10000";
 
-      const data = await res.json();
+    const res = await fetch(`${API_BASE_URL}/predict`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        temperature: 40,
+        volume_fraction: 1.0,
+        density_np1: 3970,
+        density_np2: 5810,
+        density_bf: 997,
+        volume: 1.0,
+      }),
+    });
+
+    const data = await res.json();
+    
+    if (res.ok) {
       setResult(data.prediction);
-
-    } catch (error) {
-      console.error("API Error:", error);
+    } else {
+      console.error("Server Error:", data);
     }
-  };
+
+  } catch (error) {
+    console.error("Network/API Error:", error);
+  }
+};
 
   return (
     <div className="min-h-screen bg-[#020b1f] text-slate-200 font-sans p-6 selection:bg-blue-500/30">
