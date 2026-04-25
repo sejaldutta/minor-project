@@ -1,26 +1,14 @@
 import React, { useState } from 'react';
 import { 
   Home, Info, Settings, Mail, Beaker, Thermometer, 
-  Droplet, Percent, Zap, Calculator 
+  Droplet, Percent, Zap, Calculator, ChevronDown 
 } from 'lucide-react';
-import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, 
-  Tooltip, ResponsiveContainer 
-} from 'recharts';
-
-// Mock data for the chart
-const chartData = [
-  { temp: 20, density: 1063 },
-  { temp: 30, density: 1045 },
-  { temp: 40, density: 1025 },
-  { temp: 50, density: 1005 },
-  { temp: 60, density: 985 },
-  { temp: 70, density: 965 },
-];
 
 export default function NanofluidDashboard() {
-  // 1. Unified state for all API inputs
+  // 1. STATE (Includes UI-only dropdown values)
   const [inputs, setInputs] = useState({
+    nano_particle: "Al₂O₃/SiO₂", 
+    base_fluid: "Water",         
     temperature: 40,
     volume_fraction: 1.0,
     density_np1: 3970,
@@ -32,32 +20,28 @@ export default function NanofluidDashboard() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // 2. Update handler for sliders
   const updateField = (field, value) => {
-    setInputs((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    setInputs(prev => ({ ...prev, [field]: value }));
   };
 
-  // 3. API Call using the current state
+  // 2. API CALL (Filtered to send only numerical data)
   const handleCalculate = async () => {
     setLoading(true);
     try {
       const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:10000";
 
+      // Destructure to separate UI-only values from backend values
+      const { nano_particle, base_fluid, ...backendData } = inputs;
+
       const res = await fetch(`${API_BASE_URL}/predict`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(inputs), // Automatically sends all slider values
+        body: JSON.stringify(backendData),
       });
 
       const data = await res.json();
-      
       if (res.ok) {
         setResult(data.prediction);
-      } else {
-        console.error("Server Error:", data);
       }
     } catch (error) {
       console.error("Network/API Error:", error);
@@ -66,13 +50,24 @@ export default function NanofluidDashboard() {
     }
   };
 
+  const nanoOptions = [
+    "Al₂O₃/SiO₂", "TiO₂-SiO₂", "Fe₃O₄-MWCNT", "Al₂O₃-CNT", "Al₂O₃-MWCNT",
+    "TiO₂-MgO", "MgO-MWCNT", "CuO-MWCNT", "Co₃O₄/rGO", "Ag-GNP",
+    "ND-Fe₃O₄", "TiO₂-MWCNT", "CeO₂-MWCNT", "ZnO-MWCNT"
+  ];
+
+  const fluidOptions = [
+    "Water", "20 – 70 °C", "GB (glycol-based)", "30 – 70 °C", 
+    "DW (distilled water)", "16 – 70 °C", "W-EG 60:40%", "20 – 60 °C"
+  ];
+
   return (
     <div className="min-h-screen bg-[#020b1f] text-slate-200 font-sans p-6 selection:bg-blue-500/30">
       
       {/* HEADER */}
-      <header className="flex flex-col md:flex-row justify-between items-center mb-8 px-4 gap-4">
+      <header className="flex justify-between items-center mb-12 px-4 max-w-7xl mx-auto">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-700 rounded-full flex items-center justify-center">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-700 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/20">
             <Droplet className="text-white fill-current" size={24} />
           </div>
           <div>
@@ -80,127 +75,135 @@ export default function NanofluidDashboard() {
             <p className="text-blue-400 text-sm">Predict. Analyze. Optimize.</p>
           </div>
         </div>
-        <nav className="flex items-center gap-4 bg-blue-900/20 backdrop-blur-md px-6 py-2 rounded-full border border-blue-500/20 text-sm">
-          <button className="flex items-center gap-2 hover:text-blue-400"><Home size={16}/> Home</button>
-          <button className="flex items-center gap-2 hover:text-blue-400"><Info size={16}/> About</button>
-          <button className="flex items-center gap-2 hover:text-blue-400"><Settings size={16}/> Logic</button>
-          <button className="flex items-center gap-2 hover:text-blue-400"><Mail size={16}/> Contact</button>
-        </nav>
       </header>
 
-      <main className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-7xl mx-auto">
+      <main className="grid grid-cols-1 lg:grid-cols-5 gap-8 max-w-7xl mx-auto items-start">
         
-        {/* INPUT SECTION */}
-        <section className="bg-white/5 border border-white/10 rounded-xl p-6 shadow-2xl">
-          <h2 className="text-lg font-semibold mb-6 flex items-center gap-2 text-blue-400">
-            <Settings size={20}/> Input Parameters
+        {/* INPUT SECTION (Spans 3 columns) */}
+        <section className="lg:col-span-3 bg-white/5 border border-white/10 rounded-xl p-8 shadow-2xl">
+          <h2 className="text-lg font-semibold mb-8 flex items-center gap-2 text-blue-400">
+            <Settings size={20}/> Configuration Parameters
           </h2>
+
+          {/* DROPDOWNS */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-10 border-b border-white/10 pb-10">
+            <Dropdown 
+              label="Nano Particle"
+              options={nanoOptions}
+              value={inputs.nano_particle}
+              onChange={(val) => updateField('nano_particle', val)}
+            />
+            <Dropdown 
+              label="Base Fluid"
+              options={fluidOptions}
+              value={inputs.base_fluid}
+              onChange={(val) => updateField('base_fluid', val)}
+            />
+          </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6 mb-8">
-            <ControlSlider 
-              label="Temperature" icon={<Thermometer size={14}/>} 
-              value={inputs.temperature} min={0} max={100} step={1} unit="°C"
-              onChange={(val) => updateField('temperature', val)} 
-            />
-            <ControlSlider 
-              label="Volume Fraction" icon={<Percent size={14}/>} 
-              value={inputs.volume_fraction} min={0} max={10} step={0.1} unit="%"
-              onChange={(val) => updateField('volume_fraction', val)} 
-            />
-            <ControlSlider 
-              label="Density NP1" icon={<Zap size={14}/>} 
-              value={inputs.density_np1} min={1000} max={8000} step={10} unit="kg/m³"
-              onChange={(val) => updateField('density_np1', val)} 
-            />
-            <ControlSlider 
-              label="Density NP2" icon={<Zap size={14}/>} 
-              value={inputs.density_np2} min={1000} max={8000} step={10} unit="kg/m³"
-              onChange={(val) => updateField('density_np2', val)} 
-            />
-            <ControlSlider 
-              label="Base Fluid Density" icon={<Droplet size={14}/>} 
-              value={inputs.density_bf} min={500} max={2000} step={1} unit="kg/m³"
-              onChange={(val) => updateField('density_bf', val)} 
-            />
-            <ControlSlider 
-              label="Volume" icon={<Beaker size={14}/>} 
-              value={inputs.volume} min={0.1} max={10} step={0.1} unit="L"
-              onChange={(val) => updateField('volume', val)} 
-            />
+          {/* SLIDERS */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-8 mb-10">
+            <ControlSlider label="Temperature" icon={<Thermometer size={14}/>} value={inputs.temperature} min={0} max={100} step={1} unit="°C" onChange={(val) => updateField('temperature', val)} />
+            <ControlSlider label="Vol. Concentration" icon={<Percent size={14}/>} value={inputs.volume_fraction} min={0} max={10} step={0.1} unit="%" onChange={(val) => updateField('volume_fraction', val)} />
+            <ControlSlider label="Density NP1" icon={<Zap size={14}/>} value={inputs.density_np1} min={1000} max={8000} step={10} unit="kg/m³" onChange={(val) => updateField('density_np1', val)} />
+            <ControlSlider label="Density NP2" icon={<Zap size={14}/>} value={inputs.density_np2} min={1000} max={8000} step={10} unit="kg/m³" onChange={(val) => updateField('density_np2', val)} />
+            <ControlSlider label="Base Fluid Density" icon={<Droplet size={14}/>} value={inputs.density_bf} min={500} max={2000} step={1} unit="kg/m³" onChange={(val) => updateField('density_bf', val)} />
+            <ControlSlider label="Volume" icon={<Beaker size={14}/>} value={inputs.volume} min={0.1} max={10} step={0.1} unit="L" onChange={(val) => updateField('volume', val)} />
           </div>
 
           <button 
             onClick={handleCalculate}
             disabled={loading}
-            className="w-full py-4 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 disabled:opacity-50 transition-all rounded-lg font-bold text-white flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
+            className="w-full py-5 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 disabled:opacity-50 transition-all rounded-lg font-bold text-white flex items-center justify-center gap-3 shadow-lg shadow-blue-500/20"
           >
-            <Calculator size={20}/> {loading ? "PROCESSING..." : "CALCULATE DENSITY"}
+            <Calculator size={22}/> {loading ? "CALCULATING..." : "GENERATE PREDICTION"}
           </button>
         </section>
 
-        {/* RESULT & GRAPH SECTION */}
-        <div className="space-y-6">
-          <section className="bg-gradient-to-br from-blue-900/40 to-[#020b1f] border border-blue-500/20 rounded-xl p-8 text-center relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent opacity-50"></div>
-            <Droplet className="text-blue-400 mx-auto mb-2 animate-pulse"/>
-            <p className="text-sm text-slate-400 uppercase tracking-widest font-medium">Predicted Density</p>
-
-            <div className="text-7xl font-black my-4 text-transparent bg-clip-text bg-gradient-to-b from-white to-blue-400">
+        {/* RESULTS SECTION (Spans 2 columns) */}
+        <div className="lg:col-span-2 space-y-6">
+          <section className="bg-gradient-to-br from-blue-900/40 to-[#020b1f] border border-blue-500/20 rounded-xl p-12 text-center h-full flex flex-col justify-center items-center relative overflow-hidden min-h-[400px]">
+            {/* Subtle background glow */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-blue-500/10 blur-[100px] rounded-full"></div>
+            
+            <p className="text-sm text-slate-400 uppercase tracking-[0.2em] mb-6 relative z-10">Predicted Density Result</p>
+            
+            <div className="text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-blue-400 mb-4 relative z-10">
               {result !== null ? result.toFixed(2) : "--"}
             </div>
-
-            <p className="text-blue-300 font-medium">kg/m³</p>
-          </section>
-
-          <section className="bg-white/5 border border-white/10 rounded-xl p-6">
-            <h3 className="text-sm font-semibold mb-4 text-slate-400 uppercase tracking-wider">Density vs Temperature Trend</h3>
-            <div className="h-[250px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                  <XAxis dataKey="temp" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} domain={['dataMin - 10', 'dataMax + 10']} />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '8px' }}
-                    itemStyle={{ color: '#60a5fa' }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="density" 
-                    stroke="#3b82f6" 
-                    strokeWidth={3} 
-                    dot={{ fill: '#3b82f6', r: 4 }}
-                    activeDot={{ r: 6, strokeWidth: 0 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+            
+            <div className="flex flex-col items-center relative z-10">
+              <p className="text-blue-300 text-lg font-medium tracking-wide">kg/m³</p>
+              <div className="h-1 w-12 bg-blue-500/30 rounded-full mt-6"></div>
             </div>
+
+            {result === null && !loading && (
+              <p className="mt-8 text-xs text-slate-500 italic">Adjust parameters and click calculate to see results.</p>
+            )}
           </section>
+
+          <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Summary</h3>
+            <div className="space-y-3">
+              <SummaryItem label="Particle" value={inputs.nano_particle} />
+              <SummaryItem label="Fluid" value={inputs.base_fluid} />
+              <SummaryItem label="Temp" value={`${inputs.temperature}°C`} />
+            </div>
+          </div>
         </div>
       </main>
     </div>
   );
 }
 
-// REUSABLE CONTROL COMPONENT
+// Sub-components
+function SummaryItem({ label, value }) {
+  return (
+    <div className="flex justify-between text-sm">
+      <span className="text-slate-500">{label}</span>
+      <span className="text-blue-300 font-medium">{value}</span>
+    </div>
+  );
+}
+
+function Dropdown({ label, options, value, onChange }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.15em]">{label}</label>
+      <div className="relative">
+        <select 
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full bg-[#0a162e] border border-white/10 text-blue-100 py-3 px-4 rounded-lg appearance-none focus:outline-none focus:border-blue-500/50 transition-all cursor-pointer text-sm shadow-inner"
+        >
+          {options.map((opt) => (
+            <option key={opt} value={opt} className="bg-[#0a162e]">{opt}</option>
+          ))}
+        </select>
+        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-blue-400/50" size={16} />
+      </div>
+    </div>
+  );
+}
+
 function ControlSlider({ label, icon, value, min, max, step, unit, onChange }) {
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       <div className="flex justify-between items-center">
-        <label className="text-[11px] font-bold text-slate-400 uppercase flex items-center gap-1.5">
-          {icon} {label}
+        <label className="text-[11px] font-bold text-slate-400 uppercase flex items-center gap-2 tracking-wider">
+          <span className="text-blue-400/70">{icon}</span> {label}
         </label>
-        <span className="text-xs font-mono text-blue-400 font-bold bg-blue-400/10 px-2 py-0.5 rounded border border-blue-400/20">
+        <span className="text-xs font-mono text-blue-400 font-bold bg-blue-400/10 px-2 py-0.5 rounded border border-blue-400/20 shadow-sm">
           {value} {unit}
         </span>
       </div>
       <input 
         type="range" 
-        className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500 hover:accent-cyan-400 transition-all" 
-        min={min}
-        max={max}
-        step={step}
-        value={value}
+        className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500 hover:accent-cyan-400 transition-all" 
+        min={min} 
+        max={max} 
+        step={step} 
+        value={value} 
         onChange={(e) => onChange(parseFloat(e.target.value))} 
       />
     </div>
