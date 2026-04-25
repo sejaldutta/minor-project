@@ -28,7 +28,7 @@ export default function NanofluidDashboard() {
   const handleCalculate = async () => {
     setLoading(true);
     try {
-      const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:10000";
+      const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:10000";
 
       // Destructure to separate UI-only values from backend values
       const { nano_particle, base_fluid, ...backendData } = inputs;
