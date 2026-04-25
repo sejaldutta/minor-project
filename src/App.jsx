@@ -42,16 +42,16 @@ export default function NanofluidDashboard() {
       const data = await res.json();
       if (res.ok) {
         setResult(data.prediction);
-      }
-    //  catch (error) {
-    //   console.error("Network/API Error:", error);
-    // } finally {
-    //   setLoading(false);
-    // }
-      else {
+      }      else {
   // 💡 This will tell you exactly what FastAPI didn't like
   alert("Error from Backend: " + JSON.stringify(data.detail || data.error));
 }
+    } catch (error) {
+      console.error("Network/API Error:", error);
+    } finally {
+      setLoading(false);
+    }
+
   };
 
   const nanoOptions = [
