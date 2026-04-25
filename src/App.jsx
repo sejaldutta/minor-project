@@ -109,13 +109,12 @@ export default function NanofluidDashboard() {
         <section className="bg-white/5 border border-white/10 rounded-xl p-6">
 
           <div className="grid grid-cols-2 gap-6 mb-8">
-            <ControlSlider label="Temperature (°C)" icon={<Thermometer size={14}/>} val="40" unit="°C" />
-            <ControlSlider label="Volume Concentration" icon={<Percent size={14}/>} val="1.0" unit="%" />
-            <ControlSlider label="Density NP1" icon={<Zap size={14}/>} val="3970" unit="kg/m³" />
-            <ControlSlider label="Density NP2" icon={<Zap size={14}/>} val="5810" unit="kg/m³" />
-            <ControlSlider label="Base Fluid Density" icon={<Droplet size={14}/>} val="997" unit="kg/m³" />
-            <ControlSlider label="Volume" icon={<Beaker size={14}/>} val="1.0" unit="L" />
-          </div>
+           <ControlSlider label="Temperature (°C)"    icon={<Thermometer size={14}/>} defaultValue={40}   min={0}    max={100}  step={1}   unit="°C"    />
+            <ControlSlider label="Volume Concentration" icon={<Percent size={14}/>}    defaultValue={1.0}  min={0}    max={10}   step={0.1} unit="%"     />
+            <ControlSlider label="Density NP1"          icon={<Zap size={14}/>}        defaultValue={3970} min={1000} max={8000} step={10}  unit="kg/m³" />
+            <ControlSlider label="Density NP2"          icon={<Zap size={14}/>}        defaultValue={5810} min={1000} max={8000} step={10}  unit="kg/m³" />
+            <ControlSlider label="Base Fluid Density"   icon={<Droplet size={14}/>}    defaultValue={997}  min={500}  max={2000} step={1}   unit="kg/m³" />
+            <ControlSlider label="Volume"               icon={<Beaker size={14}/>}     defaultValue={1.0}  min={0.1}  max={10}   step={0.1} unit="L"     />
 
           {/* ✅ BUTTON CONNECTED */}
           <button 
@@ -161,8 +160,8 @@ export default function NanofluidDashboard() {
 }
 
 // COMPONENTS
-
-function ControlSlider({ label, icon, val, unit }) {
+function ControlSlider({ label, icon, defaultValue, min, max, step, unit }) {
+  const [val, setVal] = useState(defaultValue);
   return (
     <div>
       <label className="text-xs">{icon} {label}</label>
