@@ -4,6 +4,10 @@ import numpy as np
 import joblib
 import uvicorn
 app = FastAPI()
+origins = [
+    "https://minor-project-frontend-three.vercel.app",
+    "http://localhost:3000", # Keep this for local testing
+]
 
 # ✅ Enable CORS (VERY IMPORTANT for Vercel frontend)
 app.add_middleware(
