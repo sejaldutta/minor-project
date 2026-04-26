@@ -25,6 +25,9 @@ model = joblib.load("model.pkl")
 def home():
     return {"message": "Nanofluid API running"}
 
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 # ✅ Prediction API
 @app.post("/predict")
 def predict(data: dict):
@@ -47,6 +50,8 @@ def predict(data: dict):
             "status": "success"
         }
 
-   except Exception as e:
+     except Exception as e:
         print(f"Backend Error: {e}") # This shows up in Render Logs
         return {"error": str(e), "status": "failed"}
+   if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=10000)
