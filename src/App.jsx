@@ -1,217 +1,236 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  Home, Info, Settings, Mail, Beaker, Thermometer, 
-  Droplet, Percent, Zap, Calculator, ChevronDown 
+  Beaker, Settings, Activity, Info, Download, Lock, 
+  Droplets, CircleDot, PieChart, Calculator 
 } from 'lucide-react';
+import { 
+  LineChart, Line, XAxis, YAxis, CartesianGrid, 
+  Tooltip, ResponsiveContainer 
+} from 'recharts';
+
+const COMBINATION_DATA = {
+  "Al₂O₃/SiO₂": { baseFluid: "Water", np1: 3970, np2: 2200 },
+  "TiO₂-SiO₂": { baseFluid: "Water", np1: 4230, np2: 2200 },
+  "Fe₃O₄-MWCNT": { baseFluid: "Water", np1: 5180, np2: 2100 },
+  "ND-Fe₃O₄": { baseFluid: "W-EG (60:40%)", np1: 3100, np2: 5810 },
+  "Ag-GNP (17:83)": { baseFluid: "Water", np1: 10490, np2: 2000 },
+};
 
 export default function NanofluidDashboard() {
-  // 1. STATE (Includes UI-only dropdown values)
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [graphData, setGraphData] = useState([]);
+  
   const [inputs, setInputs] = useState({
-    nano_particle: "Al₂O₃/SiO₂", 
-    base_fluid: "Water",         
-    temperature: 40,
-    volume_fraction: 1.0,
+    nano_particle: "Al₂O₃/SiO₂",
+    base_fluid: "Water",
+    temperature: 25,
+    volume_fraction: 0.25,
     density_np1: 3970,
-    density_np2: 5810,
-    density_bf: 997,
-    volume: 1.0,
+    density_np2: 2200,
+    density_bf: 997.05,
+    volume: 100.0, // Matches 'Total Volume Mixture'
   });
 
-  const [result, setResult] = useState(null);
-  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    const props = COMBINATION_DATA[inputs.nano_particle];
+    if (props) {
+      setInputs(prev => ({
+        ...prev,
+        density_np1: props.np1,
+        density_np2: props.np2,
+        base_fluid: props.baseFluid
+      }));
+    }
+  }, [inputs.nano_particle]);
 
   const updateField = (field, value) => {
     setInputs(prev => ({ ...prev, [field]: value }));
   };
 
-  // 2. API CALL (Filtered to send only numerical data)
+  // HELPER: Maps internal state to the exact keys the Backend expects
+  const mapToBackend = (temp) => ({
+    'Temperature (°C)': temp,
+    'Volume Concentration (φ)': inputs.volume_fraction,
+    'Density of Nano Particle 1 (ρnp)': inputs.density_np1,
+    'Density of Nano Particle 2 (ρnp)': inputs.density_np2,
+    'Density of Base Fluid (ρbf)': inputs.density_bf,
+    'Total Volume Mixture': inputs.volume
+  });
+
   const handleCalculate = async () => {
     setLoading(true);
+    const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:10000";
+
     try {
-      const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:10000";
-
-      // Destructure to separate UI-only values from backend values
-      const { nano_particle, base_fluid, ...backendData } = inputs;
-
+      // 1. Single Prediction
+      const payload = mapToBackend(inputs.temperature);
       const res = await fetch(`${API_BASE_URL}/predict`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(backendData),
+        body: JSON.stringify(payload),
       });
-
       const data = await res.json();
-      if (res.ok) {
-        setResult(data.prediction);
-      }      else {
-//   // 💡 This will tell you exactly what FastAPI didn't like
-//   alert("Error from Backend: " + JSON.stringify(data.detail || data.error));
-// }
-        alert("Target URL: " + `${API_BASE_URL}/predict`);
-      }
+      if (res.ok) setResult(data.prediction);
+
+      // 2. 20-Point Graph Prediction
+      const tempRange = Array.from({ length: 20 }, (_, i) => 10 + i * 3.5); // 10°C to 80°C
+      
+      const graphRequests = tempRange.map(t => 
+        fetch(`${API_BASE_URL}/predict`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(mapToBackend(t)),
+        }).then(r => r.json().then(d => ({ 
+          temp: parseFloat(t.toFixed(1)), 
+          density: d.prediction 
+        })))
+      );
+
+      const results = await Promise.all(graphRequests);
+      setGraphData(results.sort((a, b) => a.temp - b.temp));
+
     } catch (error) {
-      console.error("Network/API Error:", error);
+      console.error("Fetch Error:", error);
+      alert("Failed to connect to ML backend.");
     } finally {
       setLoading(false);
     }
-
   };
 
-  const nanoOptions = [
-    "Al₂O₃/SiO₂", "TiO₂-SiO₂", "Fe₃O₄-MWCNT", "Al₂O₃-CNT", "Al₂O₃-MWCNT",
-    "TiO₂-MgO", "MgO-MWCNT", "CuO-MWCNT", "Co₃O₄/rGO", "Ag-GNP",
-    "ND-Fe₃O₄", "TiO₂-MWCNT", "CeO₂-MWCNT", "ZnO-MWCNT"
-  ];
-
-  const fluidOptions = [
-    "Water", "20 – 70 °C", "GB (glycol-based)", "30 – 70 °C", 
-    "DW (distilled water)", "16 – 70 °C", "W-EG 60:40%", "20 – 60 °C"
-  ];
-
   return (
-    <div className="min-h-screen bg-[#020b1f] text-slate-200 font-sans p-6 selection:bg-blue-500/30">
-      
-      {/* HEADER */}
-      <header className="flex justify-between items-center mb-12 px-4 max-w-7xl mx-auto">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-700 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/20">
-            <Droplet className="text-white fill-current" size={24} />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Nanofluid Density Predictor</h1>
-            <p className="text-blue-400 text-sm">Predict. Analyze. Optimize.</p>
-          </div>
-        </div>
-      </header>
-
-      <main className="grid grid-cols-1 lg:grid-cols-5 gap-8 max-w-7xl mx-auto items-start">
+    <div className="min-h-screen bg-[#f0f4f9] p-6 font-sans text-slate-700">
+      <div className="mx-auto max-w-7xl bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden">
         
-        {/* INPUT SECTION (Spans 3 columns) */}
-        <section className="lg:col-span-3 bg-white/5 border border-white/10 rounded-xl p-8 shadow-2xl">
-          <h2 className="text-lg font-semibold mb-8 flex items-center gap-2 text-blue-400">
-            <Settings size={20}/> Configuration Parameters
-          </h2>
-
-          {/* DROPDOWNS */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-10 border-b border-white/10 pb-10">
-            <Dropdown 
-              label="Nano Particle"
-              options={nanoOptions}
-              value={inputs.nano_particle}
-              onChange={(val) => updateField('nano_particle', val)}
-            />
-            <Dropdown 
-              label="Base Fluid"
-              options={fluidOptions}
-              value={inputs.base_fluid}
-              onChange={(val) => updateField('base_fluid', val)}
-            />
-          </div>
-          
-          {/* SLIDERS */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-8 mb-10">
-            <ControlSlider label="Temperature" icon={<Thermometer size={14}/>} value={inputs.temperature} min={0} max={100} step={1} unit="°C" onChange={(val) => updateField('temperature', val)} />
-            <ControlSlider label="Vol. Concentration" icon={<Percent size={14}/>} value={inputs.volume_fraction} min={0} max={10} step={0.1} unit="%" onChange={(val) => updateField('volume_fraction', val)} />
-            <ControlSlider label="Density NP1" icon={<Zap size={14}/>} value={inputs.density_np1} min={1000} max={8000} step={10} unit="kg/m³" onChange={(val) => updateField('density_np1', val)} />
-            <ControlSlider label="Density NP2" icon={<Zap size={14}/>} value={inputs.density_np2} min={1000} max={8000} step={10} unit="kg/m³" onChange={(val) => updateField('density_np2', val)} />
-            <ControlSlider label="Base Fluid Density" icon={<Droplet size={14}/>} value={inputs.density_bf} min={500} max={2000} step={1} unit="kg/m³" onChange={(val) => updateField('density_bf', val)} />
-            <ControlSlider label="Volume" icon={<Beaker size={14}/>} value={inputs.volume} min={0.1} max={10} step={0.1} unit="L" onChange={(val) => updateField('volume', val)} />
-          </div>
-
-          <button 
-            onClick={handleCalculate}
-            disabled={loading}
-            className="w-full py-5 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 disabled:opacity-50 transition-all rounded-lg font-bold text-white flex items-center justify-center gap-3 shadow-lg shadow-blue-500/20"
-          >
-            <Calculator size={22}/> {loading ? "CALCULATING..." : "GENERATE PREDICTION"}
-          </button>
-        </section>
-
-        {/* RESULTS SECTION (Spans 2 columns) */}
-        <div className="lg:col-span-2 space-y-6">
-          <section className="bg-gradient-to-br from-blue-900/40 to-[#020b1f] border border-blue-500/20 rounded-xl p-12 text-center h-full flex flex-col justify-center items-center relative overflow-hidden min-h-[400px]">
-            {/* Subtle background glow */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-blue-500/10 blur-[100px] rounded-full"></div>
-            
-            <p className="text-sm text-slate-400 uppercase tracking-[0.2em] mb-6 relative z-10">Predicted Density Result</p>
-            
-            <div className="text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-blue-400 mb-4 relative z-10">
-              {result !== null ? result.toFixed(2) : "--"}
+        <header className="bg-[#001e3c] p-4 flex justify-between items-center text-white">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-500/20 rounded-lg"><Beaker className="text-blue-300" size={24} /></div>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight">Hybrid Nanofluid Density Predictor</h1>
+              <p className="text-xs text-slate-400">Targeting ML API with ρnp & φ parameters</p>
             </div>
-            
-            <div className="flex flex-col items-center relative z-10">
-              <p className="text-blue-300 text-lg font-medium tracking-wide">kg/m³</p>
-              <div className="h-1 w-12 bg-blue-500/30 rounded-full mt-6"></div>
+          </div>
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${loading ? 'border-yellow-500/30' : 'border-green-500/30'}`}>
+            <div className={`w-2 h-2 rounded-full ${loading ? 'bg-yellow-500 animate-spin' : 'bg-green-500 animate-pulse'}`} />
+            <span className="text-xs font-medium text-slate-200">{loading ? 'Computing Graph...' : 'System Ready'}</span>
+          </div>
+        </header>
+
+        <div className="grid grid-cols-12 gap-6 p-6">
+          {/* INPUT PANEL */}
+          <div className="col-span-4 space-y-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Settings size={20} className="text-[#001e3c]" />
+              <h2 className="font-bold text-[#001e3c] uppercase tracking-wider text-sm">Parameters</h2>
             </div>
 
-            {result === null && !loading && (
-              <p className="mt-8 text-xs text-slate-500 italic">Adjust parameters and click calculate to see results.</p>
-            )}
-          </section>
+            <section className="space-y-4">
+              <label className="block text-xs font-bold text-slate-500 uppercase">Selection</label>
+              <select 
+                value={inputs.nano_particle}
+                onChange={(e) => updateField('nano_particle', e.target.value)}
+                className="w-full p-2.5 bg-white border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {Object.keys(COMBINATION_DATA).map(opt => <option key={opt} value={opt}>{opt}</option>)}
+              </select>
+            </section>
 
-          <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Summary</h3>
-            <div className="space-y-3">
-              <SummaryItem label="Particle" value={inputs.nano_particle} />
-              <SummaryItem label="Fluid" value={inputs.base_fluid} />
-              <SummaryItem label="Temp" value={`${inputs.temperature}°C`} />
+            <section className="space-y-5">
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs font-medium">
+                  <span className="text-slate-600">Volume Concentration (φ)</span>
+                  <span className="text-blue-600 font-bold">{inputs.volume_fraction}</span>
+                </div>
+                <input type="range" min="0" max="2" step="0.01" value={inputs.volume_fraction} onChange={(e) => updateField('volume_fraction', parseFloat(e.target.value))} className="w-full h-1.5 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600" />
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs font-medium">
+                  <span className="text-slate-600">Temperature (°C)</span>
+                  <span className="text-blue-600 font-bold">{inputs.temperature}°C</span>
+                </div>
+                <input type="range" min="10" max="90" step="1" value={inputs.temperature} onChange={(e) => updateField('temperature', parseInt(e.target.value))} className="w-full h-1.5 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="relative">
+                  <label className="text-[9px] uppercase font-bold text-slate-400 absolute left-3 top-2">ρbf (Base Fluid)</label>
+                  <input type="number" value={inputs.density_bf} onChange={(e) => updateField('density_bf', parseFloat(e.target.value))} className="w-full pt-6 pb-2 px-3 border border-slate-200 rounded-lg text-sm" />
+                </div>
+                <div className="relative">
+                  <label className="text-[9px] uppercase font-bold text-slate-400 absolute left-3 top-2">Total Volume</label>
+                  <input type="number" value={inputs.volume} onChange={(e) => updateField('volume', parseFloat(e.target.value))} className="w-full pt-6 pb-2 px-3 border border-slate-200 rounded-lg text-sm" />
+                </div>
+              </div>
+
+              <button 
+                onClick={handleCalculate}
+                disabled={loading}
+                className="w-full bg-[#001e3c] text-white py-4 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-[#002b56] transition-all shadow-lg active:scale-95 disabled:opacity-50"
+              >
+                {loading ? <Activity className="animate-spin" size={18} /> : <Calculator size={18} />}
+                {loading ? "FETCHING PREDICTIONS..." : "GENERATE ANALYSIS"}
+              </button>
+            </section>
+          </div>
+
+          {/* RESULTS PANEL */}
+          <div className="col-span-8 space-y-6">
+            <div className="grid grid-cols-5 gap-6">
+              <div className="col-span-3 bg-gradient-to-br from-blue-700 to-blue-900 rounded-xl p-8 text-white flex flex-col justify-center items-center shadow-lg">
+                <p className="text-xs font-light mb-1 opacity-70">Predicted Result (kg/m³)</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-7xl font-black">{result ? result.toFixed(2) : "--"}</span>
+                </div>
+              </div>
+
+              <div className="col-span-2 border border-slate-200 rounded-xl p-5 bg-white shadow-sm space-y-3">
+                <h2 className="font-bold text-[10px] uppercase text-slate-400 tracking-wider flex items-center gap-2">
+                  <Info size={14} className="text-blue-600" /> API Mapping Info
+                </h2>
+                <div className="space-y-2 text-[11px]">
+                  <div className="flex justify-between border-b pb-1">
+                    <span className="text-slate-500">ρnp 1</span>
+                    <span className="font-bold">{inputs.density_np1}</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-1">
+                    <span className="text-slate-500">ρnp 2</span>
+                    <span className="font-bold">{inputs.density_np2}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">φ (Conc)</span>
+                    <span className="font-bold">{inputs.volume_fraction}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* GRAPH AREA */}
+            <div className="border border-slate-200 rounded-xl p-6 bg-white shadow-sm">
+              <h2 className="font-bold uppercase text-xs tracking-tight mb-6 flex items-center gap-2">
+                <Activity size={16} className="text-blue-800" /> Density (ρ) vs Temperature (T) Trend
+              </h2>
+              <div className="h-64 w-full">
+                {graphData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={graphData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="temp" tick={{fontSize: 10}} label={{ value: 'T (°C)', position: 'bottom', offset: 0, fontSize: 10 }} />
+                      <YAxis domain={['auto', 'auto']} tick={{fontSize: 10}} />
+                      <Tooltip contentStyle={{ borderRadius: '8px', fontSize: '12px' }} />
+                      <Line type="monotone" dataKey="density" stroke="#2563eb" strokeWidth={3} dot={{ r: 2 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center border-2 border-dashed border-slate-100 rounded-xl text-slate-400 text-sm">
+                    Generate Analysis to see graph data
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
-      </main>
-    </div>
-  );
-}
-
-// Sub-components
-function SummaryItem({ label, value }) {
-  return (
-    <div className="flex justify-between text-sm">
-      <span className="text-slate-500">{label}</span>
-      <span className="text-blue-300 font-medium">{value}</span>
-    </div>
-  );
-}
-
-function Dropdown({ label, options, value, onChange }) {
-  return (
-    <div className="flex flex-col gap-3">
-      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.15em]">{label}</label>
-      <div className="relative">
-        <select 
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-full bg-[#0a162e] border border-white/10 text-blue-100 py-3 px-4 rounded-lg appearance-none focus:outline-none focus:border-blue-500/50 transition-all cursor-pointer text-sm shadow-inner"
-        >
-          {options.map((opt) => (
-            <option key={opt} value={opt} className="bg-[#0a162e]">{opt}</option>
-          ))}
-        </select>
-        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-blue-400/50" size={16} />
       </div>
-    </div>
-  );
-}
-
-function ControlSlider({ label, icon, value, min, max, step, unit, onChange }) {
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex justify-between items-center">
-        <label className="text-[11px] font-bold text-slate-400 uppercase flex items-center gap-2 tracking-wider">
-          <span className="text-blue-400/70">{icon}</span> {label}
-        </label>
-        <span className="text-xs font-mono text-blue-400 font-bold bg-blue-400/10 px-2 py-0.5 rounded border border-blue-400/20 shadow-sm">
-          {value} {unit}
-        </span>
-      </div>
-      <input 
-        type="range" 
-        className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500 hover:accent-cyan-400 transition-all" 
-        min={min} 
-        max={max} 
-        step={step} 
-        value={value} 
-        onChange={(e) => onChange(parseFloat(e.target.value))} 
-      />
     </div>
   );
 }
