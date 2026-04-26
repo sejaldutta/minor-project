@@ -76,9 +76,9 @@ export default function NanofluidDashboard() {
   };
 
   // Run prediction on initial load
-  useEffect(() => {
-    handlePredict();
-  }, [combination]); // Re-run when combination changes to keep UI in sync
+  // useEffect(() => {
+  //   handlePredict();
+  // }, [combination]); // Re-run when combination changes to keep UI in sync
 
   return (
     <div className="min-h-screen bg-[#f0f4f9] p-6 font-sans text-slate-700">
