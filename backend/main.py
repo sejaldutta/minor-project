@@ -32,9 +32,7 @@ def health():
 @app.post("/predict")
 def predict(data: dict):
     try:
-        # ✅ Cast everything to float to ensure the model doesn't get strings
-        # Use .get() to avoid KeyErrors if a value is missing
-        features = np.array([[
+        features = np.array([[ 
             float(data.get("temperature", 0)),
             float(data.get("volume_fraction", 0)),
             float(data.get("density_np1", 0)),
@@ -50,8 +48,10 @@ def predict(data: dict):
             "status": "success"
         }
 
-     except Exception as e:
-        print(f"Backend Error: {e}") # This shows up in Render Logs
+    except Exception as e:
+        print(f"Backend Error: {e}")
         return {"error": str(e), "status": "failed"}
-   if __name__ == "__main__":
+
+
+if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=10000)
