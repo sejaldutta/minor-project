@@ -16,32 +16,32 @@ const COMBINATION_DATA = {
   "Fe3O4-MWCNT (74:26)": { baseFluid: "Water", np1: 5810, np2: 2100 }
 };
 
+// ... (Imports and COMBINATION_DATA stay the same)
+
 export default function NanofluidDashboard() {
   const [combination, setCombination] = useState("Ag-GNP (17:83)");
   const [concentration, setConcentration] = useState(0.25);
   const [temperature, setTemperature] = useState(25);
   const [baseDensity, setBaseDensity] = useState(997.05);
   
-  // New states for API data
   const [prediction, setPrediction] = useState(null);
   const [graphData, setGraphData] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const activeProps = COMBINATION_DATA[combination];
 
-  // Helper to format payload exactly as required by backend
+  // MATCHING YOUR main.py KEYS EXACTLY
   const createPayload = (temp) => ({
-    'Temperature (°C)': temp,
-    'Volume Concentration (φ)': concentration,
-    'Density of Nano Particle 1 (ρnp)': activeProps.np1,
-    'Density of Nano Particle 2 (ρnp)': activeProps.np2,
-    'Density of Base Fluid (ρbf)': baseDensity,
-    'Total Volume Mixture': 100
+    "temperature": temp,
+    "volume_fraction": concentration,
+    "density_np1": activeProps.np1,
+    "density_np2": activeProps.np2,
+    "density_bf": baseDensity,
+    "volume": 100
   });
 
   const handlePredict = async () => {
     setIsLoading(true);
-    // Sanitize API URL to prevent double slashes
     const baseUrl = (import.meta.env.VITE_API_URL || "http://localhost:10000").replace(/\/$/, "");
     const endpoint = `${baseUrl}/predict`;
 
@@ -52,10 +52,13 @@ export default function NanofluidDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(createPayload(temperature))
       });
+      
+      if (!res.ok) throw new Error("Server response was not ok");
+      
       const data = await res.json();
       setPrediction(data.prediction);
 
-      // 2. Fetch graph data (16°C to 70°C)
+      // 2. Fetch graph data
       const temps = Array.from({ length: 10 }, (_, i) => 16 + i * 6);
       const graphResults = await Promise.all(temps.map(async (t) => {
         const gRes = await fetch(endpoint, {
@@ -70,15 +73,13 @@ export default function NanofluidDashboard() {
       setGraphData(graphResults);
     } catch (error) {
       console.error("Connection failed:", error);
+      alert("Error: Check if your backend is running at " + endpoint);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Run prediction on initial load
-  // useEffect(() => {
-  //   handlePredict();
-  // }, [combination]); // Re-run when combination changes to keep UI in sync
+  // REMOVED the useEffect so prediction only happens on click.
 
   return (
     <div className="min-h-screen bg-[#f0f4f9] p-6 font-sans text-slate-700">
